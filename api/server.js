@@ -135,6 +135,8 @@ const allowedOrigins = [
   "http://127.0.0.1:1234",
   /^http:\/\/localhost:\d+$/, // allow any localhost port
   /^https:\/\/.+-saurabhmelgirkars-projects\.vercel\.app$/, // preview URLs
+   'https://www.tedxdypakurdi.com',
+    'https://tedxdypakurdi.com' ,
 ];
 
 const app = express();
