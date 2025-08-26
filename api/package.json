@@ -1,0 +1,35 @@
+{
+  "name": "tedx-backend",
+  "version": "1.0.0",
+  "description": "TEDx backend API",
+  "private": true,
+  "type": "commonjs",
+  "main": "api/server.js",
+  "scripts": {
+    "start": "node api/server.js",
+    "dev": "nodemon api/server.js",
+    "health": "node -e \"require('http').get(process.env.SELF_URL + '/health',()=>process.exit(0)).on('error',()=>process.exit(1))\""
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "googleapis": "^157.0.0",
+    "mongoose": "^8.18.0",
+    "morgan": "^1.10.1",
+    "nodemailer": "^6.10.1",
+    "pdfkit": "^0.15.2",
+    "qrcode": "^1.5.4",
+    "razorpay": "^2.9.6",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
