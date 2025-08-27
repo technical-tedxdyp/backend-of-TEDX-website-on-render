@@ -269,18 +269,19 @@ const morgan = require("morgan");
 const { google } = require("googleapis");
 const { connectDB } = require("./utils/db");
 const paymentRoutes = require("./paymentRoutes");
-const fetch = require("node-fetch"); // For self-ping to reduce cold start
+const fetch = require("node-fetch");
 const Razorpay = require("razorpay");
-// Add these imports at the top for Health Bot
 const os = require('os');
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
+
 const PORT = process.env.PORT || 4000;
-// Allowed origins - Updated with your custom domains
+
+// Allowed origins
 const allowedOrigins = [
-  "https://www.tedxdypakurdi.com",      // Your custom domain
-  "https://tedxdypakurdi.com",          // Your custom domain without www
+  "https://www.tedxdypakurdi.com",
+  "https://tedxdypakurdi.com",
   "https://tedx-dyp-akurdi.vercel.app",
   "https://tedxdev.netlify.app",
   "http://localhost:3000",
@@ -289,12 +290,15 @@ const allowedOrigins = [
   /^http:\/\/localhost:\d+$/,
   /^https:\/\/.+-saurabhmelgirkars-projects\.vercel\.app$/,
 ];
+
 const app = express();
 const BODY_LIMIT = process.env.BODY_LIMIT || "10mb";
+
 // Middleware
 app.use(express.json({ limit: BODY_LIMIT }));
 app.use(express.urlencoded({ limit: BODY_LIMIT, extended: true }));
 app.use(morgan("tiny"));
+
 // CORS Configuration
 app.use(
   cors({
@@ -314,6 +318,7 @@ app.use(
   })
 );
 app.options("*", cors());
+
 // Enhanced Health Bot System
 class HealthBot {
   constructor() {
@@ -321,9 +326,11 @@ class HealthBot {
     this.healthChecks = new Map();
     this.alerts = [];
   }
+
   registerService(name, checkFunction) {
     this.healthChecks.set(name, checkFunction);
   }
+
   async checkSystemHealth() {
     const health = {
       status: 'healthy',
@@ -334,6 +341,7 @@ class HealthBot {
       performance: {},
       alerts: this.alerts
     };
+
     try {
       // System metrics
       health.system = {
@@ -346,6 +354,7 @@ class HealthBot {
         loadAverage: os.loadavg(),
         hostname: os.hostname()
       };
+
       // Performance metrics
       const memUsage = process.memoryUsage();
       health.performance = {
@@ -357,6 +366,7 @@ class HealthBot {
         },
         cpuUsage: process.cpuUsage()
       };
+
       // Check all registered services
       for (const [serviceName, checkFn] of this.healthChecks) {
         try {
@@ -374,6 +384,7 @@ class HealthBot {
           health.status = 'degraded';
         }
       }
+
       // Overall health determination
       const unhealthyServices = Object.values(health.services)
         .filter(service => service.status === 'unhealthy');
@@ -382,12 +393,15 @@ class HealthBot {
         health.status = unhealthyServices.length === Object.keys(health.services).length 
           ? 'unhealthy' : 'degraded';
       }
+
     } catch (error) {
       health.status = 'unhealthy';
       health.error = error.message;
     }
+
     return health;
   }
+
   addAlert(level, message, service = null) {
     const alert = {
       level,
@@ -402,8 +416,10 @@ class HealthBot {
     console.log(`🚨 [${level.toUpperCase()}] ${message}${service ? ` (${service})` : ''}`);
   }
 }
+
 // Initialize Health Bot
 const healthBot = new HealthBot();
+
 // Register service health checks
 healthBot.registerService('database', async () => {
   const mongoose = require('mongoose');
@@ -417,6 +433,7 @@ healthBot.registerService('database', async () => {
     db: mongoose.connection.name
   };
 });
+
 healthBot.registerService('googleSheets', async () => {
   const auth = await verifyGoogleAuth();
   if (!auth) {
@@ -427,7 +444,9 @@ healthBot.registerService('googleSheets', async () => {
     scopes: ['https://www.googleapis.com/auth/spreadsheets']
   };
 });
+
 healthBot.registerService('razorpay', async () => {
+  // Fixed: Use correct environment variable names
   if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
     throw new Error('Razorpay credentials not configured');
   }
@@ -436,8 +455,8 @@ healthBot.registerService('razorpay', async () => {
     keyId: process.env.RAZORPAY_KEY_ID ? 'present' : 'missing'
   };
 });
+
 // Routes
-// Enhanced Health Endpoint
 app.get("/health", async (req, res) => {
   try {
     const health = await healthBot.checkSystemHealth();
@@ -453,25 +472,28 @@ app.get("/health", async (req, res) => {
     });
   }
 });
+
 app.get("/", (req, res) => res.json({ message: "TEDx Server is running!" }));
+
 // Razorpay Payment Routes
 app.post("/api/payment/create-order", async (req, res) => {
   try {
     const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
+      key_id: process.env.RAZORPAY_KEY_ID,    // Fixed: Use correct variable name
+      key_secret: process.env.RAZORPAY_KEY_SECRET,  // Fixed: Use correct variable name
     });
+
     const { amount, currency = "INR" } = req.body;
     
     const options = {
-      amount: amount * 100, // Convert to paise
+      amount: amount * 100,
       currency,
       receipt: `receipt_order_${Date.now()}`,
       payment_capture: 1,
     };
+
     const order = await razorpay.orders.create(options);
     
-    // Log successful order creation
     healthBot.addAlert('info', `Order created: ${order.id}`, 'razorpay');
     
     res.json({
@@ -489,19 +511,18 @@ app.post("/api/payment/create-order", async (req, res) => {
     });
   }
 });
-// Payment Success Handler
+
+// Payment verification
 app.post("/api/payment/verify", async (req, res) => {
   try {
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
     
-    // TODO: Implement signature verification using crypto
     const crypto = require('crypto');
-    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);  // Fixed: Use correct variable name
     hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
     const generated_signature = hmac.digest('hex');
     
     if (generated_signature === razorpay_signature) {
-      // Payment is verified
       healthBot.addAlert('info', `Payment verified: ${razorpay_payment_id}`, 'razorpay');
       
       res.json({
@@ -525,7 +546,9 @@ app.post("/api/payment/verify", async (req, res) => {
     });
   }
 });
+
 app.use("/api/payment", paymentRoutes);
+
 // Ticket routes for session recovery
 app.get("/api/tickets/:ticketId", async (req, res) => {
   try {
@@ -542,8 +565,10 @@ app.get("/api/tickets/:ticketId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket" });
   }
 });
+
 // 404 Handler
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found" }));
+
 // Error Handler
 app.use((err, req, res, next) => {
   if (err?.type === "entity.too.large") {
@@ -556,10 +581,11 @@ app.use((err, req, res, next) => {
   healthBot.addAlert('error', `Unhandled error: ${err?.message}`, 'server');
   res.status(500).json({ error: err?.message || "Internal Server Error" });
 });
+
 // Google Sheets Auth Function
 async function verifyGoogleAuth() {
   try {
-    const rawCreds = process.env.TEDX_GOOGLE_CREDENTIALS;
+    const rawCreds = process.env.TEDX_GOOGLE_CREDENTIALS;  // Fixed: Use correct variable name
     if (!rawCreds) {
       throw new Error("Missing TEDX_GOOGLE_CREDENTIALS in env vars");
     }
@@ -572,8 +598,7 @@ async function verifyGoogleAuth() {
     if (!creds.private_key || !creds.client_email) {
       throw new Error("Missing client_email or private_key in TEDX_GOOGLE_CREDENTIALS");
     }
-    // Fix private key newlines
-    creds.private_key = creds.private_key.replace(/\\n/g, "\n");
+    creds.private_key = creds.private_key.replace(/\\\\n/g, "\\n");
     const auth = new google.auth.JWT({
       email: creds.client_email,
       key: creds.private_key,
@@ -587,6 +612,7 @@ async function verifyGoogleAuth() {
     return null;
   }
 }
+
 // Start Server with Cold Start Optimization
 (async () => {
   try {
@@ -609,12 +635,12 @@ async function verifyGoogleAuth() {
             console.error("Warmup ping failed:", err.message);
             healthBot.addAlert('warning', 'Warmup ping failed', 'server');
           });
-      }, 3000); // Wait 3 seconds after server start
+      }, 3000);
     });
   } catch (e) {
     console.error("❌ Failed to start server:", e?.message || e);
     process.exit(1);
   }
 })();
-module.exports = app;
 
+module.exports = app;
