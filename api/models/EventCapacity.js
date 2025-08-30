@@ -109,7 +109,7 @@ EventCapacitySchema.virtual('totalOccupied').get(function () {
 EventCapacitySchema.pre('validate', function (next) {
   // Ensure totalSeats is valid
   if (!Number.isFinite(this.totalSeats) || this.totalSeats < 0) {
-    this.totalSeats = 400; // Default to 6 seats
+    this.totalSeats = 400; // Default to 6 seats Vineet
   }
   
   // Ensure version is valid
