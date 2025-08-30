@@ -55,6 +55,7 @@
 // module.exports = mongoose.models.EventCapacity || mongoose.model('EventCapacity', EventCapacitySchema);
 
 const mongoose = require('mongoose');
+
 const EventCapacitySchema = new mongoose.Schema(
   {
     // Unique event key
@@ -81,17 +82,21 @@ const EventCapacitySchema = new mongoose.Schema(
     toObject: { virtuals: true } 
   }
 );
+
 // Derived availability calculations (not stored in database)
 EventCapacitySchema.virtual('morningAvailable').get(function () {
   return Math.max(0, this.totalSeats - (this.fullDay + this.morningSingles));
 });
+
 EventCapacitySchema.virtual('eveningAvailable').get(function () {
   return Math.max(0, this.totalSeats - (this.fullDay + this.eveningSingles));
 });
+
 EventCapacitySchema.virtual('fullDayAvailable').get(function () {
   // A full-day seat requires a seat available in BOTH morning and evening
   return Math.min(this.morningAvailable, this.eveningAvailable);
 });
+
 // ADDED: Virtual for total occupied seats (useful for debugging)
 EventCapacitySchema.virtual('totalOccupied').get(function () {
   return Math.max(
@@ -99,32 +104,40 @@ EventCapacitySchema.virtual('totalOccupied').get(function () {
     this.fullDay + this.eveningSingles  // evening session occupancy
   );
 });
+
 // Defensive normalization and validation
 EventCapacitySchema.pre('validate', function (next) {
   // Ensure totalSeats is valid
   if (!Number.isFinite(this.totalSeats) || this.totalSeats < 0) {
-    this.totalSeats = 6; // Default to 6 seats
+    this.totalSeats = 400; // Default to 6 seats
   }
+  
   // Ensure version is valid
   if (!Number.isFinite(this.version) || this.version < 0) {
     this.version = 0;
   }
+  
   // Ensure all counters are non-negative integers
   for (const field of ['fullDay', 'morningSingles', 'eveningSingles']) {
     const value = Number(this[field]);
     this[field] = Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
   }
+  
   // ADDED: Validation to prevent logical inconsistencies
   const morningOccupied = this.fullDay + this.morningSingles;
   const eveningOccupied = this.fullDay + this.eveningSingles;
+  
   if (morningOccupied > this.totalSeats) {
     return next(new Error(`Morning sessions exceed total seats: ${morningOccupied} > ${this.totalSeats}`));
   }
+  
   if (eveningOccupied > this.totalSeats) {
     return next(new Error(`Evening sessions exceed total seats: ${eveningOccupied} > ${this.totalSeats}`));
   }
+  
   next();
 });
+
 // ADDED: Pre-save middleware to increment version on updates
 EventCapacitySchema.pre('save', function(next) {
   // Only increment version if this is an update (not initial creation)
@@ -133,15 +146,18 @@ EventCapacitySchema.pre('save', function(next) {
   }
   next();
 });
+
 // ADDED: Static method for atomic seat reservation with version check
 EventCapacitySchema.statics.reserveSeat = async function(eventId, sessionType, transactionSession) {
   const filter = { eventId };
   let inc = { version: 1 };
+  
   // Get current capacity first
   const currentCap = await this.findOne(filter, null, { session: transactionSession });
   if (!currentCap) {
     throw new Error('EVENT_NOT_FOUND');
   }
+  
   // Check availability and set increment based on session type
   if (sessionType === 'fullDay') {
     const morningOccupied = currentCap.fullDay + currentCap.morningSingles;
@@ -166,6 +182,7 @@ EventCapacitySchema.statics.reserveSeat = async function(eventId, sessionType, t
   } else {
     throw new Error('INVALID_SESSION_TYPE');
   }
+  
   // Atomic update with version check (optimistic concurrency control)
   const updatedCap = await this.findOneAndUpdate(
     { 
@@ -179,13 +196,17 @@ EventCapacitySchema.statics.reserveSeat = async function(eventId, sessionType, t
       runValidators: true 
     }
   );
+  
   if (!updatedCap) {
     throw new Error('SOLD_OUT'); // Version conflict or capacity exceeded
   }
+  
   return updatedCap;
 };
+
 // Indexes for performance
 EventCapacitySchema.index({ eventId: 1, version: 1 }); // For atomic updates
 EventCapacitySchema.index({ eventId: 1, updatedAt: -1 }); // For reporting
+
 // Reuse if already compiled to avoid OverwriteModelError
 module.exports = mongoose.models.EventCapacity || mongoose.model('EventCapacity', EventCapacitySchema);
