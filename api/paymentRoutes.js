@@ -878,7 +878,7 @@ const initializeCapacity = async () => {
     if (!existing) {
       await EventCapacity.create({
         eventId: EVENT_ID,
-        totalSeats: 400, // FIXED: Changed from 6 to 400
+        totalSeats: 400, // FIXED: Changed from 6 to 400 Vineet
         fullDay: 0,
         morningSingles: 0,
         eveningSingles: 0,
@@ -1164,7 +1164,7 @@ router.post("/verify", async (req, res) => {
       try {
         await EventCapacity.create({
           eventId: EVENT_ID,
-          totalSeats: 400, // FIXED: Changed from 6 to 400
+          totalSeats: 400, // FIXED: Changed from 6 to 400 Vineet
           fullDay: 0,
           morningSingles: 0,
           eveningSingles: 0,
